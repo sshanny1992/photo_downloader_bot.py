@@ -1,39 +1,42 @@
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
+import os
+import random
+from flask import Flask, request
+from telegram import Bot, Update
 
-# Replace 'YOUR_TOKEN' with the token you received from BotFather
-TOKEN = 'YOUR_TOKEN'
+TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
 
-# List of allowed user IDs
-ALLOWED_USERS = [123456789, 987654321]  # Replace with your user IDs
+love_quotes = [
+    "Love is not about how many days, months, or years you have been together. Love is about how much you love each other every single day.",
+    "The best and most beautiful things in this world cannot be seen or even heard, but must be felt with the heart.",
+    "Love is when the other person's happiness is more important than your own.",
+    # Add more quotes here
+]
 
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Welcome to the Photo Downloader Bot! Send /download to download the last photo.')
+app = Flask(__name__)
+bot = Bot(token=TOKEN)
 
-def download(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-    if user_id not in ALLOWED_USERS:
-        update.message.reply_text("Sorry, you are not allowed to use this bot.")
-        return
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    json_data = request.get_json()
+    update = Update.de_json(json_data, bot)
+    handle_updates([update])
+    return '', 200
 
-    photo = update.message.photo[-1]  # Get the last (highest resolution) photo from the message
-    file_id = photo.file_id
-    file = context.bot.getFile(file_id)
+def start(update):
+    update.message.reply_text("Welcome to the Love Quotes Bot! Send /quote to get a random love quote.")
 
-    # Save the photo to a secure location or perform other operations
-    file.download('downloaded_photo.jpg')
+def quote(update):
+    random_quote = random.choice(love_quotes)
+    update.message.reply_text(random_quote)
 
-    update.message.reply_text('Photo downloaded successfully.')
-
-def main() -> None:
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
-
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("download", download))
-
-    updater.start_polling()
-    updater.idle()
+def handle_updates(updates):
+    for update in updates:
+        if update.message and update.message.text:
+            text = update.message.text.lower()
+            if text.startswith('/start'):
+                start(update)
+            elif text.startswith('/quote'):
+                quote(update)
 
 if __name__ == '__main__':
-    main()
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8080)))
